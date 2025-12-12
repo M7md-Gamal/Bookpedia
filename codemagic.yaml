@@ -1,22 +1,33 @@
 workflows:
   unsigned-ipa:
-    name: Build unsigned iOS .ipa (device) - for local signing
+    name: Build unsigned iOS .ipa (device) - detect Gradle tasks
     max_build_duration: 40
     environment:
       vars:
         XCODE_PROJECT: "iosApp/iosApp.xcodeproj"
         XCODE_SCHEME: "iosApp"
         XCODE_DESTINATION: "generic/platform=iOS"
-        GRADLE_TASK: "assembleXCFramework"
+        GRADLE_TASK: ""
+        LIST_GRADLE_TASKS: "true"
     scripts:
-      - name: (optional) Run Gradle first if your KMP produces frameworks
+      - name: List Gradle tasks (produce gradle_tasks.txt)
+        script: |
+          if [ "$LIST_GRADLE_TASKS" = "true" ]; then
+            echo "=== Listing all Gradle tasks (this can be large) ==="
+            chmod +x ./gradlew
+            ./gradlew tasks --all > "$CM_BUILD_DIR/gradle_tasks.txt" || true
+            echo "Saved gradle task list to $CM_BUILD_DIR/gradle_tasks.txt"
+          else
+            echo "Skipping Gradle task listing (LIST_GRADLE_TASKS != true)"
+          fi
+      - name: (optional) Run Gradle task if configured and present
         script: |
           if [ -n "$GRADLE_TASK" ]; then
-            echo "Running Gradle task: $GRADLE_TASK"
+            echo "GRADLE_TASK is set to: $GRADLE_TASK — attempting to run it"
             chmod +x ./gradlew
             ./gradlew $GRADLE_TASK --no-daemon
           else
-            echo "Skipping Gradle step (GRADLE_TASK not set)"
+            echo "GRADLE_TASK not set — skipping Gradle step"
           fi
       - name: Build unsigned app for device
         script: |
@@ -61,6 +72,10 @@ workflows:
         script: |
           echo "Artifacts produced:"
           find $CM_BUILD_DIR -maxdepth 4 -type f -name "*.ipa" -print || true
+          if [ -f "$CM_BUILD_DIR/gradle_tasks.txt" ]; then
+            echo "Gradle task list available at $CM_BUILD_DIR/gradle_tasks.txt"
+          fi
     artifacts:
       - $CM_BUILD_DIR/ipas/*.ipa
       - $CM_BUILD_DIR/build/**/*
+      - $CM_BUILD_DIR/gradle_tasks.txt
