@@ -4,14 +4,12 @@ workflows:
     max_build_duration: 40
     environment:
       vars:
-        # --- Project settings (already filled for your repo) ---
-        # You can change these if your project layout or scheme differs.
-        XCODE_WORKSPACE: ""                        # leave empty for .xcodeproj
-        XCODE_PROJECT: "iosApp/iosApp.xcodeproj"   # path to your Xcode project (from repo root)
-        XCODE_SCHEME: "iosApp"                     # default scheme name (change below if needed)
+        # Using your Xcode project found in the repo
+        XCODE_PROJECT: "iosApp/iosApp.xcodeproj"
+        XCODE_SCHEME: "iosApp"
         XCODE_DESTINATION: "generic/platform=iOS"
-        # If your Kotlin Multiplatform needs a Gradle task beforehand, set it:
-        GRADLE_TASK: "assembleXCFramework"         # leave empty ("") to skip Gradle step
+        # If your Kotlin Multiplatform needs a Gradle task first, set it (or set to "" to skip)
+        GRADLE_TASK: "assembleXCFramework"
     triggers:
       - push
     scripts:
