@@ -7,7 +7,6 @@ workflows:
         XCODE_PROJECT: "iosApp/iosApp.xcodeproj"
         XCODE_SCHEME: "iosApp"
         XCODE_DESTINATION: "generic/platform=iOS"
-        GRADLE_TASK: ""
         LIST_GRADLE_TASKS: "true"
     scripts:
       - name: List Gradle tasks (produce gradle_tasks.txt)
