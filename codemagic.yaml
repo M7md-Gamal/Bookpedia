@@ -1,28 +1,19 @@
 workflows:
   unsigned-ipa:
-    name: Build unsigned iOS .ipa (device) - detect Gradle tasks
-    max_build_duration: 40
+    name: Build unsigned iOS .ipa (device) - run KMP Gradle task
+    max_build_duration: 60
     environment:
       vars:
         XCODE_PROJECT: "iosApp/iosApp.xcodeproj"
         XCODE_SCHEME: "iosApp"
         XCODE_DESTINATION: "generic/platform=iOS"
-        LIST_GRADLE_TASKS: "true"
+        # Gradle task chosen from your project's task list to prepare Apple frameworks for Xcode
+        GRADLE_TASK: "composeApp:embedAndSignAppleFrameworkForXcode"
     scripts:
-      - name: List Gradle tasks (produce gradle_tasks.txt)
-        script: |
-          if [ "$LIST_GRADLE_TASKS" = "true" ]; then
-            echo "=== Listing all Gradle tasks (this can be large) ==="
-            chmod +x ./gradlew
-            ./gradlew tasks --all > "$CM_BUILD_DIR/gradle_tasks.txt" || true
-            echo "Saved gradle task list to $CM_BUILD_DIR/gradle_tasks.txt"
-          else
-            echo "Skipping Gradle task listing (LIST_GRADLE_TASKS != true)"
-          fi
-      - name: (optional) Run Gradle task if configured and present
+      - name: Run Gradle task to prepare iOS frameworks
         script: |
           if [ -n "$GRADLE_TASK" ]; then
-            echo "GRADLE_TASK is set to: $GRADLE_TASK — attempting to run it"
+            echo "Running Gradle task: $GRADLE_TASK"
             chmod +x ./gradlew
             ./gradlew $GRADLE_TASK --no-daemon
           else
@@ -50,7 +41,7 @@ workflows:
             exit 1
           fi
           echo "Build products (top-level of build dir):"
-          find "$CM_BUILD_DIR/build" -maxdepth 4 -print || true
+          find "$CM_BUILD_DIR/build" -maxdepth 6 -print || true
       - name: Package unsigned .app into unsigned .ipa
         script: |
           set -e
@@ -70,11 +61,9 @@ workflows:
       - name: List artifacts (for debug)
         script: |
           echo "Artifacts produced:"
-          find $CM_BUILD_DIR -maxdepth 4 -type f -name "*.ipa" -print || true
-          if [ -f "$CM_BUILD_DIR/gradle_tasks.txt" ]; then
-            echo "Gradle task list available at $CM_BUILD_DIR/gradle_tasks.txt"
-          fi
+          find $CM_BUILD_DIR -maxdepth 6 -type f -name "*.ipa" -print || true
+          echo "Also list build dir tree for debug:"
+          find $CM_BUILD_DIR/build -maxdepth 6 -print || true
     artifacts:
       - $CM_BUILD_DIR/ipas/*.ipa
       - $CM_BUILD_DIR/build/**/*
-      - $CM_BUILD_DIR/gradle_tasks.txt
