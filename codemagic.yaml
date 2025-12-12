@@ -1,0 +1,72 @@
+workflows:
+  unsigned-ipa:
+    name: Build unsigned iOS .ipa (device) - for local signing
+    max_build_duration: 40
+    environment:
+      vars:
+        # --- Project settings (already filled for your repo) ---
+        # You can change these if your project layout or scheme differs.
+        XCODE_WORKSPACE: ""                        # leave empty for .xcodeproj
+        XCODE_PROJECT: "iosApp/iosApp.xcodeproj"   # path to your Xcode project (from repo root)
+        XCODE_SCHEME: "iosApp"                     # default scheme name (change below if needed)
+        XCODE_DESTINATION: "generic/platform=iOS"
+        # If your Kotlin Multiplatform needs a Gradle task beforehand, set it:
+        GRADLE_TASK: "assembleXCFramework"         # leave empty ("") to skip Gradle step
+    triggers:
+      - push
+    scripts:
+      - name: (optional) Run Gradle first if your KMP produces frameworks
+        script: |
+          if [ -n "$GRADLE_TASK" ]; then
+            echo "Running Gradle task: $GRADLE_TASK"
+            chmod +x ./gradlew
+            ./gradlew $GRADLE_TASK --no-daemon
+          else
+            echo "Skipping Gradle step (GRADLE_TASK not set)"
+          fi
+      - name: Build unsigned app for device
+        script: |
+          set -e
+          echo "=== Building unsigned .app (device) ==="
+          if [ -n "$XCODE_WORKSPACE" ] && [ -f "$XCODE_WORKSPACE" ]; then
+            xcodebuild -workspace "$XCODE_WORKSPACE" -scheme "$XCODE_SCHEME" -configuration Release -destination "$XCODE_DESTINATION" clean build \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO \
+              BUILD_DIR="$CM_BUILD_DIR/build"
+          elif [ -n "$XCODE_PROJECT" ] && [ -f "$XCODE_PROJECT" ]; then
+            xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -configuration Release -destination "$XCODE_DESTINATION" clean build \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO \
+              BUILD_DIR="$CM_BUILD_DIR/build"
+          else
+            echo "ERROR: Neither workspace nor project found at the configured paths."
+            ls -la || true
+            exit 1
+          fi
+          echo "Build products (top-level of build dir):"
+          find "$CM_BUILD_DIR/build" -maxdepth 4 -print || true
+      - name: Package unsigned .app into unsigned .ipa
+        script: |
+          set -e
+          APP_PATH=$(find "$CM_BUILD_DIR/build" -type d -name "*.app" | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: .app not found in build dir ($CM_BUILD_DIR/build)"
+            exit 1
+          fi
+          echo "Found app at: $APP_PATH"
+          mkdir -p "$CM_BUILD_DIR/ipas"
+          rm -rf Payload
+          mkdir Payload
+          cp -R "$APP_PATH" Payload/
+          /usr/bin/zip -r "$CM_BUILD_DIR/ipas/${XCODE_SCHEME}-unsigned.ipa" Payload > /dev/null
+          echo "Unsigned IPA created: $CM_BUILD_DIR/ipas/${XCODE_SCHEME}-unsigned.ipa"
+          rm -rf Payload
+      - name: List artifacts (for debug)
+        script: |
+          echo "Artifacts produced:"
+          find $CM_BUILD_DIR -maxdepth 4 -type f -name "*.ipa" -print || true
+    artifacts:
+      - $CM_BUILD_DIR/ipas/*.ipa
+      - $CM_BUILD_DIR/build/**/*
