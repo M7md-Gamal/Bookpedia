@@ -4,14 +4,10 @@ workflows:
     max_build_duration: 40
     environment:
       vars:
-        # Using your Xcode project found in the repo
         XCODE_PROJECT: "iosApp/iosApp.xcodeproj"
         XCODE_SCHEME: "iosApp"
         XCODE_DESTINATION: "generic/platform=iOS"
-        # If your Kotlin Multiplatform needs a Gradle task first, set it (or set to "" to skip)
         GRADLE_TASK: "assembleXCFramework"
-    triggers:
-      - push
     scripts:
       - name: (optional) Run Gradle first if your KMP produces frameworks
         script: |
